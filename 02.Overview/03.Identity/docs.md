@@ -5,24 +5,34 @@ taxonomy:
     label: reference
 ---
 
-##Definition
+## The identity of a device
 
-An identity is a set of key-value attributes.
-For example, you can describe a device as:
+We designed Mender to manage an arbitrary number of devices. Internally the server assigns
+a unique, unchangeable identifier to each one of them. The Device ID, as we call it, does not however
+have a directly visible relation to any device attributes.
+To address this problem we created a constant set of key-value pairs that uniquely identify a device,
+that we call "Identity". 
 
-```
-ID={
-CustomerName=Northern.tech AS
-ProjectID=4306609
-Site=Oslo
-SerialNumber=12345678
-}
-```
 
-Which exact attributes make up an identity depends on the identity
-scheme of a given system.
+## Mender approach to identity
 
-The Mender client allows the user to define the identity attributes, which means that Mender
+MAC address of a network interface controller, serial number, eMMC CID, can all be considered
+pieces of data that:
+* do not change over the lifetime of a device
+* are human-readable
+* form a 1:1 relationship with the device
+* you can store them as key-value pairs
+
+The Mender client sends the MAC address of the primary interface as a default
+identity attribute. Once you have accepted the device, you can see it in the UI:
+
+![identity](identity.png)
+
+Which corresponds to the following screen shot from a RaspberryPi:
+
+![pi](rpiipas.png)
+
+The Mender client allows you to define the identity attributes, which means that Mender
 can adapt to the identity scheme of any environment. However, Mender imposes the following
 requirements for device identities:
 
@@ -33,109 +43,8 @@ Do not use device keys as part of an identity, because this makes it very diffic
 rotate or regenerate keys over the lifetime of the device (as it in effect changes the identity).
 It is important to have the ability to regenerate keys if a device gets compromised, or as a recurring proactive security measure.
 
+When a device asks for [authorization](linktotheauth) it sends along identity
+attributes, based on which the Mender server determines the identity of the device.
 
-##Example device identities
-
-Even though Mender allows several attributes to make up the device identity,
-most environments just use one attribute for simplicity.
-
-For example, a MAC address of the primary interface satisfies the requirements for device identity:
-
-```
-ID={
-MAC=56:84:7a:fe:97:99
-}
-```
-
-Another example would be an eMMC CID:
-
-```
-ID={
-# cat /sys/class/mmc_host/mmc0/mmc0\:0001/cid 
-CID=90014a484247346132a4528894a9a300
-}
-```
-
-You could also use the serial number of a device:
-
-```
-ID={
-SerialNumber=PF021XD5
-}
-```
-
-In some cases, several attributes form a device identity:
-
-```
-ID={
-Generation=2
-Model=3
-DeviceNumber=1800
-}
-```
-
-The Mender client works with all of these schemes, but note that you should only use one of them.
-For example, it does not make much sense to use the serial number to identify some devices, but
-the MAC address to identify others.
-
-
-##The Device ID
-
-For convenience it is very useful to always have a fixed-length string that uniquely identifies a
-device. The Mender server implements this by assigning a unique **Device ID** to a device
-as it connects to the server.
-
-For example, a Device ID could look like `be979170-388a-4f38-871d-a4cf88b3ba2d`.
-
-Clearly, the Device ID is not human-friendly, so the identity attributes are also transferred and
-stored by the Mender server. The Device ID is primarily used for security purposes and software-based
-recognition of devices during device authentication, grouping, reporting, and similar cases.
-
-
-##Implement a device identity executable
-
-The Mender client obtains the identity attributes by running an executable
-(e.g. binary or script) named `mender-device-identity` and parsing its standard output as the identity.
-The executable lives under `/usr/share/mender/identity/mender-device-identity`.
-
-The executable must produce a set of attributes on
-standard output in the following key/value format:
-
-```
-key=value\n
-```
-
-For example:
-
-```
-mac=0a:1b:3d:fe:02:33
-cpuid=1234123-ABC
-```
-
-Newline characters are not supported and will be stripped.
-If you want to include them, encode them in a URL format (`foo\nbar` becomes `foo%10bar`).
-
-If an attribute appears multiple times, it will translate to a list.
-For example, this output:
-
-```
-mac=0a:1b:3d:fe:02:33
-mac=0a:1b:3d:fe:02:34
-cpuid=1234123-ABC
-```
-
-will translate to:
-
-```
-mac=[0a:1b:3d:fe:02:33, 0a:1b:3d:fe:02:34]
-cpuid=1234123-ABC
-```
-
-! The device identity must remain unchanged throughout lifetime of the device. Use attributes that will not change or are unlikely to change in the future. Examples of such attributes are device/CPU serial numbers, interface MAC addresses, and in-factory burned EEPROM contents.
-
-
-## Example device identity executables
-
-<!--AUTOVERSION: "mender/tree/%"/mender-->
-Example scripts are provided in the [support directory in the Mender client source code repository](https://github.com/mendersoftware/mender/tree/master/support?target=_blank).
-
+Please refer to the [following](linktothe.05-client-configuration/03-identity) sections
+to find detailed tutorial on managing the identities.
